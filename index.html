@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Automation Suite | AETHERIA Solutions</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- CDN: SheetJS for Excel/CSV -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <!-- CDN: PDF.js for PDF parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- CDN: Mammoth.js for DOCX parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <div>
+          <h1>AETHERIA <span class="accent">AutoSend Pro</span></h1>
+          <p class="tagline">Smart Number Normalizer & Zero-Ban WhatsApp Dispatcher with Database History</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-db">💾 IndexedDB Storage Active</span>
+        <span class="badge badge-safe">🔒 100% Client-Side Safe</span>
+      </div>
+    </div>
+
+    <!-- Main Navigation Bar -->
+    <nav class="main-nav">
+      <div class="nav-inner">
+        <button class="nav-tab active" id="navTabWorkspace" onclick="switchView('workspace')">
+          ⚡ Campaign Workspace
+        </button>
+        <button class="nav-tab" id="navTabHistory" onclick="switchView('history')">
+          📂 Saved Campaigns & History <span class="nav-count" id="campCountBadge">0</span>
+        </button>
+        <button class="nav-tab" id="navTabTemplates" onclick="switchView('templates')">
+          📝 Template Library <span class="nav-count" id="tplCountBadge">0</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container">
+
+    <!-- Active Campaign Bar (if resuming from database) -->
+    <div id="activeCampaignNotice" class="active-campaign-banner" style="display: none;">
+      <div class="active-camp-left">
+        <span class="camp-icon">📂</span>
+        <span>Active Campaign: <strong id="activeCampName">Untitled</strong> (<span id="activeCampMeta">0 contacts</span>)</span>
+      </div>
+      <div class="active-camp-right">
+        <button class="btn-xs btn-outline" onclick="saveCurrentCampaign()">💾 Save State</button>
+        <button class="btn-xs btn-outline" onclick="closeActiveCampaign()">✕ Close</button>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 1: CAMPAIGN WORKSPACE (Steps 1 to 4)                 -->
+    <!-- ======================================================== -->
+    <div id="workspaceView">
+
+      <!-- ===== STEP 1: FILE UPLOAD ===== -->
+      <section class="step-card" id="step1">
+        <div class="step-header">
+          <span class="step-badge">1</span>
+          <h2>Upload Document or Spreadsheet</h2>
+          <span class="supported-formats">Supported: .xlsx, .xls, .csv, .pdf, .docx</span>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-content">
+            <div class="upload-icon">
+              <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <p class="upload-text">Drag & drop your Excel, CSV, PDF, or Word file</p>
+            <p class="upload-sub">or click to browse your computer</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf,.docx" hidden>
+          </div>
+        </div>
+
+        <div class="file-info" id="fileInfo" style="display:none;">
+          <div class="file-chip">
+            <span class="file-icon">📄</span>
+            <span id="fileName"></span>
+            <span id="fileSize"></span>
+            <button class="btn-remove" id="removeFile" title="Remove and upload another file">✕</button>
+          </div>
+          <!-- Multi-sheet selector (if Excel has multiple sheets) -->
+          <div id="sheetSelectorWrapper" style="display:none; margin-top: 12px;">
+            <label for="sheetSelect" style="font-size: 13px; font-weight: 600; margin-right: 8px;">📑 Choose Sheet:</label>
+            <select id="sheetSelect" class="custom-select"></select>
+          </div>
+        </div>
+
+        <!-- Loading indicator -->
+        <div class="loading-bar" id="loadingBar" style="display:none;">
+          <div class="loading-progress"></div>
+          <span id="loadingText">Analyzing and normalizing file data...</span>
+        </div>
+      </section>
+
+      <!-- ===== STEP 2: DATA AUDIT & PHONE NUMBER RECOGNITION ===== -->
+      <section class="step-card" id="step2" style="display:none;">
+        <div class="step-header">
+          <span class="step-badge">2</span>
+          <h2>Phone Recognition & Data Audit</h2>
+          <div class="step-header-actions">
+            <button class="btn-secondary btn-sm" onclick="saveCurrentCampaign()">💾 Save to Database</button>
+            <span class="row-count" id="rowCount"></span>
+          </div>
+        </div>
+
+        <!-- Stats overview banner -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <span class="stat-label">Total Contacts</span>
+            <span class="stat-val" id="statTotal">0</span>
+          </div>
+          <div class="stat-card stat-success">
+            <span class="stat-label">✅ Valid WhatsApp Numbers</span>
+            <span class="stat-val" id="statValid">0</span>
+          </div>
+          <div class="stat-card stat-warning">
+            <span class="stat-label">⚠️ Invalid / Needs Check</span>
+            <span class="stat-val" id="statInvalid">0</span>
+          </div>
+        </div>
+
+        <!-- Mapping & Normalization controls -->
+        <div class="mapping-bar">
+          <div class="mapping-field">
+            <label for="phoneColumnSelect">📱 Phone Column:</label>
+            <select id="phoneColumnSelect" class="custom-select"></select>
+          </div>
+
+          <div class="mapping-field">
+            <label for="countryCode">🌍 Default Country Code:</label>
+            <div class="input-with-prefix">
+              <span class="prefix">+</span>
+              <input type="text" id="countryCode" value="91" placeholder="91" maxlength="4">
+            </div>
+          </div>
+
+          <div class="mapping-field">
+            <label for="rangeFrom">🔢 Send Range:</label>
+            <div class="range-inputs">
+              <input type="number" id="rangeFrom" value="1" min="1" style="width: 60px;">
+              <span>to</span>
+              <input type="number" id="rangeTo" value="1" min="1" style="width: 60px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Notice for user -->
+        <div class="info-banner">
+          💡 <strong>Auto-Recognition Engine:</strong> Numbers are automatically cleaned (spaces, hyphens, brackets, leading <code>0</code>s, and Excel scientific notations <code>9.8E+09</code> are fixed). Look at the <strong>Clean WhatsApp No.</strong> column below to verify!
+        </div>
+
+        <!-- Data Table -->
+        <div class="table-wrapper">
+          <table id="dataTable">
+            <thead id="dataTableHead"></thead>
+            <tbody id="dataTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="table-pagination">
+          <button class="btn-secondary" id="prevPage" disabled>← Prev</button>
+          <span id="pageInfo">Page 1 of 1</span>
+          <button class="btn-secondary" id="nextPage">Next →</button>
+        </div>
+      </section>
+
+      <!-- ===== STEP 3: MESSAGE TEMPLATE ===== -->
+      <section class="step-card" id="step3" style="display:none;">
+        <div class="step-header">
+          <span class="step-badge">3</span>
+          <h2>Compose Message Template</h2>
+          <div class="step-header-actions">
+            <!-- Saved templates quick dropdown -->
+            <select id="templateQuickDropdown" class="custom-select" onchange="loadQuickTemplate(this.value)">
+              <option value="">📚 Load Saved Template...</option>
+            </select>
+            <button class="btn-secondary btn-sm" onclick="promptSaveCurrentTemplate()">💾 Save This Template</button>
+          </div>
+        </div>
+
+        <div class="template-area">
+          <div class="template-left">
+            <label for="messageTemplate">Message Template with Dynamic Placeholders:</label>
+            <div class="variable-tags" id="variableTags"></div>
+            <textarea id="messageTemplate" rows="6" placeholder="Hello {{Name}}, your invoice #{{InvoiceNo}} of ₹{{Amount}} is due on {{DueDate}}. Please pay at your earliest convenience. Thank you!"></textarea>
+            <p class="hint">Click any variable tag above to insert it into your message. Format: <code>{{ColumnName}}</code>.</p>
+          </div>
+          <div class="template-right">
+            <label>Live Preview with Extracted Data:</label>
+            <div class="preview-cards" id="previewCards">
+              <p class="placeholder-text">Type a template to see how real contacts will see it...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STEP 4: DISPATCH CONTROLS & QUEUE ===== -->
+      <section class="step-card" id="step4" style="display:none;">
+        <div class="step-header">
+          <span class="step-badge">4</span>
+          <h2>WhatsApp Dispatch Engine</h2>
+        </div>
+
+        <!-- ===== BIG DATA STARTING SR NO. & BATCH CONTROLLER ===== -->
+        <div class="big-data-control-panel">
+          <div class="bd-header">
+            <div class="bd-title">
+              <span class="bd-icon">🎯</span>
+              <strong>Big Data Starting Sr. No. & Batch Control</strong>
+            </div>
+            <span class="bd-dataset-info" id="bdDatasetInfo">Total dataset: 0 contacts</span>
+          </div>
+
+          <div class="bd-inputs-row">
+            <div class="bd-field">
+              <label for="startSrNo">▶️ Start from Sr. No.:</label>
+              <input type="number" id="startSrNo" min="1" value="1" class="custom-num-input" onchange="syncStartingPosition(this.value)">
+            </div>
+            <div class="bd-field">
+              <label for="endSrNo">⏹️ End at Sr. No.:</label>
+              <input type="number" id="endSrNo" min="1" value="1" class="custom-num-input" onchange="syncEndingPosition(this.value)">
+            </div>
+            <div class="bd-quick-actions">
+              <button class="btn-xs btn-highlight" onclick="jumpToFirstUnsent()" title="Automatically find first contact that hasn't been sent yet">
+                ⏩ Jump to 1st Unsent
+              </button>
+              <button class="btn-xs btn-outline" onclick="setBatchSize(25)">+25 Batch</button>
+              <button class="btn-xs btn-outline" onclick="setBatchSize(50)">+50 Batch</button>
+              <button class="btn-xs btn-outline" onclick="setBatchSize(100)">+100 Batch</button>
+              <button class="btn-xs btn-outline" onclick="resetRangeToAll()">All Contacts</button>
+            </div>
+          </div>
+
+          <div class="bd-status-bar" id="bdStatusBar">
+            Targeting Sr. No. <strong>1</strong> to <strong>50</strong> (0 processed in this batch).
+          </div>
+        </div>
+
+        <!-- Mode Selection Tabs -->
+        <div class="dispatch-mode-selector">
+          <button class="mode-tab active" id="modeQuickBtn" onclick="switchDispatchMode('quick')">
+            ⚡ Mode A: Fast 1-Click Queue (Recommended · Zero Popup Blocks)
+          </button>
+          <button class="mode-tab" id="modeAutoBtn" onclick="switchDispatchMode('auto')">
+            🤖 Mode B: Auto-Loop Runner (Single-Tab Re-use)
+          </button>
+        </div>
+
+        <!-- Mode A: Fast 1-Click Interactive Queue -->
+        <div id="modeQuickContainer" class="mode-container">
+          <div class="quick-queue-card">
+            <div class="quick-queue-header">
+              <span class="queue-status-badge">Next in Queue</span>
+              <span id="quickCounter" class="queue-counter">Contact 1 of 10</span>
+            </div>
+
+            <div class="quick-contact-details">
+              <h3 id="quickContactName">Loading contact...</h3>
+              <p id="quickContactPhone" class="quick-phone">📱 +91 0000000000</p>
+              <div class="quick-message-bubble" id="quickContactMsg">No template provided</div>
+            </div>
+
+            <div class="quick-actions">
+              <button class="btn-primary btn-large btn-whatsapp-action" id="quickSendBtn" onclick="quickSendCurrent()">
+                <span class="btn-icon">🚀</span> Open in WhatsApp & Next Contact
+              </button>
+              <button class="btn-secondary" onclick="quickSkipCurrent()">
+                ⏭️ Skip This Contact
+              </button>
+              <button class="btn-secondary" onclick="quickResetQueue()">
+                🔄 Restart Queue
+              </button>
+            </div>
+            <p class="quick-hint">💡 Pro-Tip: You can hit <strong>[Open in WhatsApp & Next]</strong> or press <strong>Spacebar / Enter</strong> to open and advance instantly!</p>
+          </div>
+        </div>
+
+        <!-- Mode B: Auto-Loop Runner -->
+        <div id="modeAutoContainer" class="mode-container" style="display: none;">
+          <div class="auto-runner-settings">
+            <div class="control-group">
+              <label for="delaySlider">⏱ Pacing Delay Between Contacts:</label>
+              <div class="slider-row">
+                <input type="range" id="delaySlider" min="3" max="30" value="6">
+                <span id="delayValue">6s</span>
+              </div>
+              <span class="delay-tip">🟢 5s–10s delay prevents WhatsApp account spam triggers</span>
+            </div>
+
+            <div class="popup-notice">
+              <span>⚠️ <strong>Important:</strong> Browser popup blockers might block automatic tab opening. Re-using single tab <code>AetheriaWhatsAppTab</code> to keep your browser fast.</span>
+            </div>
+
+            <div class="auto-actions">
+              <button class="btn-primary btn-large" id="autoStartBtn" onclick="startAutoDispatch()">
+                <span class="btn-icon">▶</span> Start Auto Loop
+              </button>
+              <button class="btn-warning btn-large" id="autoPauseBtn" onclick="pauseAutoDispatch()" style="display:none;">
+                ⏸ Pause
+              </button>
+              <button class="btn-primary btn-large" id="autoResumeBtn" onclick="resumeAutoDispatch()" style="display:none;">
+                ▶ Resume
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress & Overall Stats -->
+        <div class="overall-progress-box">
+          <div class="progress-info">
+            <span><strong>Overall Progress:</strong></span>
+            <span id="progressText">0 / 0 sent</span>
+          </div>
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+          </div>
+          <div class="action-buttons-end">
+            <button class="btn-secondary" id="exportBtn" onclick="exportReport()">
+              📥 Export CSV Delivery Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="activity-log">
+          <h3>📋 Live Activity Stream</h3>
+          <div class="log-list" id="logList">
+            <p class="placeholder-text">Messages will appear here as you process contacts...</p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 2: SAVED CAMPAIGNS & HISTORY (DATABASE)              -->
+    <!-- ======================================================== -->
+    <div id="historyView" style="display: none;">
+      <section class="step-card">
+        <div class="step-header">
+          <span class="step-badge">📂</span>
+          <h2>Saved Campaigns & Work History</h2>
+          <div class="step-header-actions">
+            <button class="btn-secondary btn-sm" onclick="exportDatabaseBackup()">📥 Export Database Backup</button>
+            <button class="btn-secondary btn-sm" onclick="triggerImportBackup()">📤 Import Backup</button>
+            <input type="file" id="backupFileInput" accept=".json" style="display:none;" onchange="handleImportBackupFile(event)">
+          </div>
+        </div>
+
+        <p class="section-desc">
+          All your uploaded files, mapped columns, message templates, and contact delivery states are stored locally in your browser's persistent database. You can resume any campaign anytime!
+        </p>
+
+        <!-- Campaigns List -->
+        <div class="history-table-wrapper" style="margin-top: 20px;">
+          <table id="historyTable" class="history-table">
+            <thead>
+              <tr>
+                <th>Campaign / File Name</th>
+                <th>Created / Updated</th>
+                <th>Total Contacts</th>
+                <th>Delivery Progress</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr>
+                <td colspan="5" class="empty-table-notice">No saved campaigns yet. Upload a file to automatically save your work!</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- VIEW 3: TEMPLATE LIBRARY                                  -->
+    <!-- ======================================================== -->
+    <div id="templatesView" style="display: none;">
+      <section class="step-card">
+        <div class="step-header">
+          <span class="step-badge">📝</span>
+          <h2>Template Library</h2>
+          <div class="step-header-actions">
+            <button class="btn-primary btn-sm" onclick="promptCreateNewTemplate()">+ Create New Template</button>
+          </div>
+        </div>
+
+        <p class="section-desc">
+          Save high-converting message templates with dynamic tags like <code>{{Name}}</code>, <code>{{Amount}}</code>, and <code>{{DueDate}}</code> to reuse across any uploaded sheet.
+        </p>
+
+        <div class="templates-grid" id="templatesGrid" style="margin-top: 20px;">
+          <!-- Template cards loaded dynamically -->
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="app-footer">
+    <p>Built with ❤️ by <strong>AETHERIA Solutions</strong> · 100% Client-Side Persistent Database · Zero Data Leaves Your Device</p>
+  </footer>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Scripts -->
+  <script src="js/db.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
