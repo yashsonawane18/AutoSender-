@@ -756,6 +756,167 @@ textarea#messageTemplate:focus {
   font-size: 12px;
 }
 
+/* ===== POSTER / PICTURE ATTACHMENT ===== */
+.poster-attachment-box {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.poster-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.poster-box-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.poster-badge-tip {
+  font-size: 11px;
+  color: var(--accent);
+  background: rgba(0, 230, 118, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.poster-drop-area {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.poster-drop-area:hover {
+  border-color: var(--accent);
+  background: rgba(0, 230, 118, 0.04);
+}
+
+.poster-drop-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.poster-icon {
+  font-size: 24px;
+}
+
+.poster-active-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(0, 230, 118, 0.04);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.poster-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.poster-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.poster-meta strong {
+  font-size: 13px;
+  color: var(--text-primary);
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poster-toggles {
+  margin-top: 4px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.toggle-label input {
+  cursor: pointer;
+}
+
+.poster-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Preview Poster */
+.preview-poster-box {
+  margin-bottom: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 140px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.preview-poster-img {
+  width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Quick Poster inside Queue */
+.quick-poster-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 230, 118, 0.05);
+  border: 1px solid rgba(0, 230, 118, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.quick-poster-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.quick-poster-tag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* Preview Cards */
 .preview-cards {
   display: flex;

@@ -8,6 +8,7 @@ let currentWorkbook = null;
 let currentSheetName = '';
 let currentFileName = '';
 let activeCampaign = null;     // Active campaign object saved in DB
+let attachedPoster = null;     // Attached image/poster { name, size, type, dataUrl, pngBlob }
 
 let parsedData = [];          // Raw rows
 let normalizedData = [];      // Rows with validated phone numbers
@@ -837,6 +838,129 @@ function interpolate(template, row) {
   });
 }
 
+// ========== POSTER / PICTURE ATTACHMENT FUNCTIONS ==========
+
+async function handlePosterUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select a valid image file (PNG, JPG, WEBP, etc.)', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    const dataUrl = event.target.result;
+    const pngBlob = await getPngBlobFromDataUrl(dataUrl);
+
+    attachedPoster = {
+      name: file.name,
+      size: formatFileSize(file.size),
+      type: file.type,
+      dataUrl: dataUrl,
+      pngBlob: pngBlob
+    };
+
+    // Update UI in Step 3
+    document.getElementById('posterDropArea').style.display = 'none';
+    document.getElementById('posterActiveCard').style.display = 'flex';
+    document.getElementById('posterThumbnail').src = dataUrl;
+    document.getElementById('posterName').textContent = file.name;
+    document.getElementById('posterSize').textContent = attachedPoster.size;
+
+    // Update Step 4 Queue Box
+    const qBox = document.getElementById('quickPosterBox');
+    const qImg = document.getElementById('quickPosterImg');
+    const qBtn = document.getElementById('quickCopyImgBtn');
+    if (qBox && qImg) {
+      qImg.src = dataUrl;
+      qBox.style.display = 'flex';
+    }
+    if (qBtn) qBtn.style.display = 'inline-flex';
+
+    renderLivePreviews();
+
+    if (activeCampaign) {
+      activeCampaign.poster = {
+        name: file.name,
+        size: attachedPoster.size,
+        type: file.type,
+        dataUrl: dataUrl
+      };
+      window.appDB.saveCampaign(activeCampaign);
+    }
+
+    showToast(`🖼️ Attached picture: "${file.name}"!`, 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAttachedPoster() {
+  attachedPoster = null;
+
+  const fileInput = document.getElementById('posterFileInput');
+  if (fileInput) fileInput.value = '';
+
+  const dropArea = document.getElementById('posterDropArea');
+  const activeCard = document.getElementById('posterActiveCard');
+  if (dropArea) dropArea.style.display = 'block';
+  if (activeCard) activeCard.style.display = 'none';
+
+  const qBox = document.getElementById('quickPosterBox');
+  const qBtn = document.getElementById('quickCopyImgBtn');
+  if (qBox) qBox.style.display = 'none';
+  if (qBtn) qBtn.style.display = 'none';
+
+  renderLivePreviews();
+
+  if (activeCampaign) {
+    delete activeCampaign.poster;
+    window.appDB.saveCampaign(activeCampaign);
+  }
+
+  showToast('Removed attached picture', 'info');
+}
+
+async function getPngBlobFromDataUrl(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || 400;
+      canvas.height = img.naturalHeight || 400;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => resolve(blob), 'image/png');
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+async function copyPosterToClipboard(notify = false) {
+  if (!attachedPoster || !attachedPoster.pngBlob) {
+    if (notify) showToast('No picture attached to copy.', 'error');
+    return false;
+  }
+
+  try {
+    const item = new ClipboardItem({ 'image/png': attachedPoster.pngBlob });
+    await navigator.clipboard.write([item]);
+    if (notify) {
+      showToast('📋 Picture copied to clipboard! Press Ctrl+V in WhatsApp to paste.', 'success');
+    }
+    return true;
+  } catch (err) {
+    console.warn('Clipboard write error:', err);
+    if (notify) {
+      showToast('Notice: Please paste image manually if clipboard permission is blocked.', 'info');
+    }
+    return false;
+  }
+}
+
 function renderLivePreviews() {
   const container = document.getElementById('previewCards');
 
@@ -853,9 +977,16 @@ function renderLivePreviews() {
     const phone = row._phoneInfo;
     const msg = interpolate(messageTemplate, row);
 
+    const posterHtml = attachedPoster ? `
+      <div class="preview-poster-box">
+        <img src="${attachedPoster.dataUrl}" class="preview-poster-img" alt="Attached Picture">
+      </div>
+    ` : '';
+
     html += `
       <div class="preview-card">
         <div class="preview-phone">📱 +${phone.clean} (${phone.valid ? 'Ready' : '⚠️ Invalid'})</div>
+        ${posterHtml}
         <div class="preview-msg">${escapeHtml(msg)}</div>
       </div>
     `;
@@ -887,7 +1018,7 @@ function switchDispatchMode(mode) {
   }
 }
 
-function sendIndividualTest(rowIndex) {
+async function sendIndividualTest(rowIndex) {
   const row = normalizedData[rowIndex];
   if (!row) return;
 
@@ -895,6 +1026,11 @@ function sendIndividualTest(rowIndex) {
   if (!phone.valid) {
     showToast(`Cannot send: ${phone.reason}`, 'error');
     return;
+  }
+
+  // Auto-copy poster to clipboard if attached
+  if (attachedPoster && document.getElementById('autoCopyPosterCheckbox')?.checked) {
+    await copyPosterToClipboard(false);
   }
 
   const template = messageTemplate.trim() || `Hello {{${columns[0]}}}, this is a test notification.`;
@@ -916,7 +1052,8 @@ function sendIndividualTest(rowIndex) {
     window.appDB.updateRowStatus(activeCampaign.id, rowIndex, 'sent', logEntry);
   }
 
-  showToast(`🚀 Opened WhatsApp for +${phone.clean}`, 'success');
+  const posterMsg = attachedPoster ? ' · 📋 Picture copied to clipboard (Ctrl+V)!' : '';
+  showToast(`🚀 Opened WhatsApp for +${phone.clean}${posterMsg}`, 'success');
 }
 
 function getActiveRangeData() {
@@ -937,6 +1074,21 @@ function updateQuickQueueCard() {
   const phoneEl = document.getElementById('quickContactPhone');
   const msgEl = document.getElementById('quickContactMsg');
   const sendBtn = document.getElementById('quickSendBtn');
+
+  // Update poster thumbnail inside queue card
+  const qBox = document.getElementById('quickPosterBox');
+  const qImg = document.getElementById('quickPosterImg');
+  const qBtn = document.getElementById('quickCopyImgBtn');
+  if (attachedPoster) {
+    if (qBox && qImg) {
+      qImg.src = attachedPoster.dataUrl;
+      qBox.style.display = 'flex';
+    }
+    if (qBtn) qBtn.style.display = 'inline-flex';
+  } else {
+    if (qBox) qBox.style.display = 'none';
+    if (qBtn) qBtn.style.display = 'none';
+  }
 
   if (range.length === 0 || normalizedData.length === 0) {
     nameEl.textContent = 'No records in selected range';
@@ -994,6 +1146,11 @@ async function quickSendCurrent() {
     }
     showToast(`Skipped invalid number for ${contactName}`, 'error');
   } else {
+    // Auto-copy poster to clipboard if attached
+    if (attachedPoster && document.getElementById('autoCopyPosterCheckbox')?.checked) {
+      await copyPosterToClipboard(false);
+    }
+
     const url = `https://wa.me/${phone.clean}?text=${encodeURIComponent(msg)}`;
     window.open(url, 'AetheriaWhatsAppTab');
 
@@ -1003,7 +1160,9 @@ async function quickSendCurrent() {
     if (activeCampaign) {
       await window.appDB.updateRowStatus(activeCampaign.id, current._index, 'sent', log);
     }
-    showToast(`✅ Opened for ${contactName}`, 'success');
+
+    const posterNotice = attachedPoster ? ' (📋 Picture in clipboard!)' : '';
+    showToast(`✅ Opened for ${contactName}${posterNotice}`, 'success');
   }
 
   renderDataTable();
@@ -1079,6 +1238,11 @@ async function autoSendNext() {
   const contactName = current[columns[0]] || `Contact ${currentQueueIndex + 1}`;
 
   if (phone.valid) {
+    // Auto-copy poster to clipboard if attached
+    if (attachedPoster && document.getElementById('autoCopyPosterCheckbox')?.checked) {
+      await copyPosterToClipboard(false);
+    }
+
     const url = `https://wa.me/${phone.clean}?text=${encodeURIComponent(msg)}`;
     window.open(url, 'AetheriaWhatsAppTab');
 
@@ -1312,6 +1476,27 @@ async function resumeCampaign(id) {
   renderStatsBanner();
   renderDataTable();
   renderVariableTags();
+
+  // Restore attached poster if exists in campaign
+  if (camp.poster && camp.poster.dataUrl) {
+    const pngBlob = await getPngBlobFromDataUrl(camp.poster.dataUrl);
+    attachedPoster = {
+      ...camp.poster,
+      pngBlob: pngBlob
+    };
+    const dropArea = document.getElementById('posterDropArea');
+    const activeCard = document.getElementById('posterActiveCard');
+    if (dropArea) dropArea.style.display = 'none';
+    if (activeCard) {
+      activeCard.style.display = 'flex';
+      document.getElementById('posterThumbnail').src = camp.poster.dataUrl;
+      document.getElementById('posterName').textContent = camp.poster.name;
+      document.getElementById('posterSize').textContent = camp.poster.size;
+    }
+  } else {
+    removeAttachedPoster();
+  }
+
   renderLivePreviews();
   updateQuickQueueCard();
   updateActiveCampaignBanner();
@@ -1535,6 +1720,8 @@ function resetApplication() {
   isAutoRunning = false;
   isAutoPaused = false;
   clearTimeout(autoTimer);
+
+  removeAttachedPoster();
 
   document.getElementById('uploadZone').style.display = 'block';
   document.getElementById('fileInfo').style.display = 'none';

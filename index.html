@@ -201,11 +201,51 @@
           <div class="template-left">
             <label for="messageTemplate">Message Template with Dynamic Placeholders:</label>
             <div class="variable-tags" id="variableTags"></div>
-            <textarea id="messageTemplate" rows="6" placeholder="Hello {{Name}}, your invoice #{{InvoiceNo}} of ₹{{Amount}} is due on {{DueDate}}. Please pay at your earliest convenience. Thank you!"></textarea>
+            <textarea id="messageTemplate" rows="5" placeholder="Hello {{Name}}, your invoice #{{InvoiceNo}} of ₹{{Amount}} is due on {{DueDate}}. Please pay at your earliest convenience. Thank you!"></textarea>
             <p class="hint">Click any variable tag above to insert it into your message. Format: <code>{{ColumnName}}</code>.</p>
+
+            <!-- ===== PICTURE / POSTER ATTACHMENT SECTION ===== -->
+            <div class="poster-attachment-box">
+              <div class="poster-box-header">
+                <span class="poster-box-title">🖼️ Attach Picture / Poster / Flyer (Optional)</span>
+                <span class="poster-badge-tip">📋 Auto-copies to clipboard for instant Ctrl+V pasting</span>
+              </div>
+
+              <!-- Poster Drop / Upload Area -->
+              <div class="poster-drop-area" id="posterDropArea" onclick="document.getElementById('posterFileInput').click()">
+                <input type="file" id="posterFileInput" accept="image/*" style="display:none;" onchange="handlePosterUpload(event)">
+                <div class="poster-drop-content" id="posterDropContent">
+                  <span class="poster-icon">📷</span>
+                  <div>
+                    <strong>Click to upload Poster / Picture</strong> or drag & drop here
+                    <div style="font-size: 11px; color: var(--text-muted);">Supports PNG, JPG, JPEG, WEBP, GIF</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Poster Active Preview Box -->
+              <div class="poster-active-card" id="posterActiveCard" style="display: none;">
+                <img id="posterThumbnail" class="poster-thumb" alt="Attached Poster">
+                <div class="poster-meta">
+                  <strong id="posterName">poster.png</strong>
+                  <span id="posterSize" style="font-size: 11px; color: var(--text-muted);">0 KB</span>
+                  <div class="poster-toggles">
+                    <label class="toggle-label">
+                      <input type="checkbox" id="autoCopyPosterCheckbox" checked>
+                      <span>Auto-copy to clipboard when opening contact</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="poster-card-actions">
+                  <button class="btn-xs btn-outline" onclick="copyPosterToClipboard(true)">📋 Copy Now</button>
+                  <button class="btn-xs btn-danger" onclick="removeAttachedPoster()">✕ Remove</button>
+                </div>
+              </div>
+            </div>
+
           </div>
           <div class="template-right">
-            <label>Live Preview with Extracted Data:</label>
+            <label>Live Preview with Extracted Data & Poster:</label>
             <div class="preview-cards" id="previewCards">
               <p class="placeholder-text">Type a template to see how real contacts will see it...</p>
             </div>
@@ -276,12 +316,22 @@
             <div class="quick-contact-details">
               <h3 id="quickContactName">Loading contact...</h3>
               <p id="quickContactPhone" class="quick-phone">📱 +91 0000000000</p>
+              
+              <!-- Quick Poster Preview inside queue -->
+              <div id="quickPosterBox" class="quick-poster-container" style="display:none;">
+                <img id="quickPosterImg" class="quick-poster-thumb" alt="Poster">
+                <span class="quick-poster-tag">🖼️ Picture Attached (Auto-copied to clipboard)</span>
+              </div>
+
               <div class="quick-message-bubble" id="quickContactMsg">No template provided</div>
             </div>
 
             <div class="quick-actions">
               <button class="btn-primary btn-large btn-whatsapp-action" id="quickSendBtn" onclick="quickSendCurrent()">
                 <span class="btn-icon">🚀</span> Open in WhatsApp & Next Contact
+              </button>
+              <button class="btn-secondary" id="quickCopyImgBtn" onclick="copyPosterToClipboard(true)" style="display:none;" title="Copy attached poster picture to clipboard">
+                📋 Copy Picture
               </button>
               <button class="btn-secondary" onclick="quickSkipCurrent()">
                 ⏭️ Skip This Contact
@@ -290,7 +340,7 @@
                 🔄 Restart Queue
               </button>
             </div>
-            <p class="quick-hint">💡 Pro-Tip: You can hit <strong>[Open in WhatsApp & Next]</strong> or press <strong>Spacebar / Enter</strong> to open and advance instantly!</p>
+            <p class="quick-hint">💡 Pro-Tip: When WhatsApp opens, text is prefilled. If a picture is attached, simply press <strong>Ctrl+V</strong> to paste the poster and hit Send!</p>
           </div>
         </div>
 
